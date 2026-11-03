@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Suncatcher M1 Live Tracker (4K Native Leaflet)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: black; overflow: hidden; }
+div[id=m] { width: 100vw; height: 100vh; }
+div[id=h] {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 20px 28px;
+  border-radius: 12px;
+  font: 24px/1.5 monospace;
+  border: 2px solid #555;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+.i {
+  width: 36px;
+  height: 36px;
+  background: red;
+  border: 4px solid white;
+  border-radius: 99px;
+  box-sizing: border-box;
+  box-shadow: 0 0 16px red;
+}
+</style>
+<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
+</head>
+<body>
+<div id="m"></div>
+<div id="h"></div>
+<script>
+const t1 = "1 A0902U 26227V   26300.14134187  .00002333  00000-0  12079-3 0  9993",
+      t2 = "2 A0902  97.4417   9.2048 0001944  69.7604 290.3838 15.17196575  3854",
+      m = L.map("m", { zoomControl: false, attributionControl: false }).setView([0, 0], 4);
+
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}", { maxZoom: 13 }).addTo(m);
+L.terminator().addTo(m);
+
+const s = satellite.twoline2satrec(t1, t2);
+let k, c;
+
+function p(d) {
+  const v = satellite.propagate(s, d);
+  if (!v.position) return null;
+  const g = satellite.eciToGeodetic(v.position, satellite.gstime(d));
+  return {
+    lt: satellite.degreesLat(g.latitude),
+    lg: satellite.degreesLong(g.longitude),
+    a: g.height,
+    s: Math.sqrt(398600.8 / (g.height + 6378.135))
+  };
+}
+
+let tr = [[]], ti = 0, n = new Date();
+for (let t = -45; t <= 45; t++) {
+  const q = p(new Date(n.getTime() + 60000 * t));
+  if (q) {
+    if (tr[ti].length && Math.abs(q.lg - tr[ti][tr[ti].length - 1][1]) > 180) tr[++ti] = [];
+    tr[ti].push([q.lt, q.lg]);
+  }
+}
+tr.forEach(g => L.polyline(g, { color: "red", weight: 4, opacity: 0.7 }).addTo(m));
+
+function u() {
+  const q = p(new Date());
+  if (!q) return;
+  const l = [q.lt, q.lg],
+        r = 6375 * Math.asin(Math.sqrt(q.a * (q.a + 12750)) / (6375 + q.a)) * 1000;
+  if (!k) {
+    k = L.marker(l, { icon: L.divIcon({ className: "i", iconSize: [36, 36], iconAnchor: [18, 18] }) }).addTo(m);
+    c = L.circle(l, { radius: r, color: "red", fillColor: "pink", fillOpacity: 0.25, weight: 3 }).addTo(m);
+    m.setView([Math.max(-58, Math.min(58, q.lt)), q.lg], 4);
+  } else {
+    k.setLatLng(l);
+    c.setLatLng(l);
+    c.setRadius(r);
+  }
+  document.getElementById("h").innerHTML = "<b style='font-size:26px;'>PROJECT SUNCATCHER-M1</b><br>LAT: " + q.lt.toFixed(2) + "&deg;<br>LNG: " + q.lg.toFixed(2) + "&deg;<br>ALT: " + q.a.toFixed(1) + " km<br>SPD: " + q.s.toFixed(2) + " km/s";
+}
+u();
+setInterval(u, 1000);
+</script>
+</body>
+</html>

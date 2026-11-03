@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Suncatcher M1 Live Tracker (4K Centered N2YO)</title>
+<style>
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+iframe {
+  width: 800px;
+  height: 592px;
+  border: 0;
+  transform: scale(3.64865);
+  transform-origin: center;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+<iframe id="w" src="https://www.n2yo.com/widgets/widget-tracker.php?s=100902&size=large&all=0&map=2&foot=1" scrolling="no"></iframe>
+<script>
+function fit() {
+  const f = document.getElementById("w");
+  if (!f) return;
+  const w = window.innerWidth || 3840;
+  const h = window.innerHeight || 2160;
+  const s = Math.min(w / 800, h / 592) || 3.64865;
+  f.style.transform = "scale(" + s + ")";
+}
+window.addEventListener("resize", fit);
+fit();
+</script>
+</body>
+</html>
