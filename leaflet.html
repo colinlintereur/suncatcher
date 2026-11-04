@@ -1,27 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Suncatcher M1 Live Tracker (4K Native Leaflet)</title>
+<title>Suncatcher M1 Live Tracker (4K Native Leaflet + Upcoming Passes)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js"></script>
+<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
 <style>
-* { box-sizing: border-box; }
-body { margin: 0; background: black; overflow: hidden; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: black;
+  overflow: hidden;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
 div[id=m] { width: 100vw; height: 100vh; }
 div[id=h] {
   position: absolute;
   top: 30px;
   right: 30px;
   z-index: 999;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(11, 17, 30, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  padding: 20px 28px;
-  border-radius: 12px;
-  font: 24px/1.5 monospace;
-  border: 2px solid #555;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  padding: 22px 30px;
+  border-radius: 16px;
+  font: 24px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 2px solid #374151;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
 }
 .i {
   width: 36px;
@@ -32,15 +39,144 @@ div[id=h] {
   box-sizing: border-box;
   box-shadow: 0 0 16px red;
 }
+.passes-card {
+  position: absolute;
+  bottom: 36px;
+  left: 36px;
+  z-index: 999;
+  width: 1120px;
+  background: rgba(11, 17, 30, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid #374151;
+  border-radius: 18px;
+  padding: 26px 30px 22px 30px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85);
+  color: #f3f4f6;
+  transform-origin: bottom left;
+}
+.passes-title {
+  font-size: 30px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+.passes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.passes-table thead tr {
+  background: rgba(31, 41, 55, 0.5);
+  border-bottom: 2px solid #4b5563;
+}
+.passes-table th {
+  padding: 13px 18px;
+  font-size: 17px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d1d5db;
+  text-align: left;
+}
+.passes-table th.col-max {
+  color: #60a5fa;
+  text-align: center;
+}
+.passes-table th.col-dur {
+  text-align: center;
+}
+.passes-table tbody tr {
+  border-left: 4px solid transparent;
+}
+.passes-table tbody tr.tier-emerald {
+  background: rgba(6, 78, 59, 0.16);
+  border-left-color: rgba(16, 185, 129, 0.8);
+}
+.passes-table tbody tr.tier-yellow {
+  background: rgba(113, 63, 18, 0.16);
+  border-left-color: rgba(234, 179, 8, 0.8);
+}
+.passes-table tbody tr.tier-orange {
+  background: rgba(124, 45, 18, 0.16);
+  border-left-color: rgba(249, 115, 22, 0.8);
+}
+.passes-table td {
+  padding: 11px 18px;
+  font-size: 21px;
+  white-space: nowrap;
+}
+.date-text {
+  color: #e5e7eb;
+  font-weight: 500;
+}
+.time-text {
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 19px;
+  margin-left: 12px;
+}
+.az-text {
+  color: #d1d5db;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 20px;
+}
+.alt-cell {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 25px;
+  font-weight: 700;
+  color: #d1d5db;
+}
+.tier-emerald .alt-cell { color: #34d399; }
+.tier-yellow .alt-cell { color: #facc15; }
+.tier-orange .alt-cell { color: #fb923c; }
+.dur-cell {
+  text-align: center;
+}
+.dur-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 16px;
+  background: rgba(55, 65, 81, 0.6);
+  border-radius: 9999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 18px;
+  color: #d1d5db;
+}
+.passes-footer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #4b5563;
+  text-align: center;
+  font-size: 19px;
+  color: #9ca3af;
+}
 </style>
-<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
 </head>
 <body>
 <div id="m"></div>
 <div id="h"></div>
+<div class="passes-card" id="passes-card">
+  <h2 class="passes-title">Upcoming Passes</h2>
+  <table class="passes-table">
+    <thead>
+      <tr>
+        <th>Date &amp; Time UTC</th>
+        <th>Rise</th>
+        <th class="col-max">Max Alt</th>
+        <th>Set</th>
+        <th class="col-dur">Duration</th>
+      </tr>
+    </thead>
+    <tbody id="passes-tbody"></tbody>
+  </table>
+  <div class="passes-footer" id="passes-footer">Showing 10 of 33 passes</div>
+</div>
 <script>
-const t1 = "1 A0902U 26227V   26300.14134187  .00002333  00000-0  12079-3 0  9993",
-      t2 = "2 A0902  97.4417   9.2048 0001944  69.7604 290.3838 15.17196575  3854",
+const t1 = "1 A0902U 26227V   26308.25345046  .00002583  00000-0  13318-3 0  9995",
+      t2 = "2 A0902  97.4408  17.1704 0001552  63.2381 296.9012 15.17240648  5081",
       m = L.map("m", { zoomControl: false, attributionControl: false }).setView([0, 0], 4);
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}", { maxZoom: 13 }).addTo(m);
@@ -85,10 +221,155 @@ function u() {
     c.setLatLng(l);
     c.setRadius(r);
   }
-  document.getElementById("h").innerHTML = "<b style='font-size:26px;'>PROJECT SUNCATCHER-M1</b><br>LAT: " + q.lt.toFixed(2) + "&deg;<br>LNG: " + q.lg.toFixed(2) + "&deg;<br>ALT: " + q.a.toFixed(1) + " km<br>SPD: " + q.s.toFixed(2) + " km/s";
+  document.getElementById("h").innerHTML = "<b style='font-size:26px;color:#60a5fa;'>PROJECT SUNCATCHER-M1</b><br>LAT: " + q.lt.toFixed(2) + "&deg;<br>LNG: " + q.lg.toFixed(2) + "&deg;<br>ALT: " + q.a.toFixed(1) + " km<br>SPD: " + q.s.toFixed(2) + " km/s";
 }
 u();
 setInterval(u, 1000);
+
+const params = new URLSearchParams(window.location.search);
+const OBSERVER = {
+  lat: parseFloat(params.get("lat")) || 35.95,
+  lng: parseFloat(params.get("lng")) || -78.89,
+  alt: parseFloat(params.get("alt")) || 0
+};
+const TZ = params.get("tz") || "America/New_York";
+const REAL_DURATION = params.get("duration") === "real";
+
+function fitCard() {
+  const card = document.getElementById("passes-card");
+  if (!card) return;
+  const w = window.innerWidth || 3840;
+  const h = window.innerHeight || 2160;
+  const cs = Math.min(w / 3840, h / 2160);
+  card.style.transform = "scale(" + cs + ")";
+}
+window.addEventListener("resize", fitCard);
+fitCard();
+
+function ordinalSuffix(day) {
+  if (day > 3 && day < 21) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+function compassDir(deg) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+function computeTransits(tle1, tle2, observer, startTime, durationDays) {
+  const satrec = satellite.twoline2satrec(tle1, tle2);
+  const obsGd = {
+    longitude: satellite.degreesToRadians(observer.lng),
+    latitude: satellite.degreesToRadians(observer.lat),
+    height: (observer.alt || 0) / 1000
+  };
+  const endTime = new Date(startTime.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  let cur = new Date(startTime);
+  let prevEl = null;
+  let inPass = false;
+  let passStart = null;
+  let passPeak = null;
+  let maxEl = -90;
+  const transits = [];
+
+  while (cur <= endTime) {
+    const pv = satellite.propagate(satrec, cur);
+    if (!pv || !pv.position || pv.error) {
+      cur = new Date(cur.getTime() + 60000);
+      continue;
+    }
+    const gmst = satellite.gstime(cur);
+    const ecf = satellite.eciToEcf(pv.position, gmst);
+    const look = satellite.ecfToLookAngles(obsGd, ecf);
+    const el = satellite.radiansToDegrees(look.elevation);
+    const az = satellite.radiansToDegrees(look.azimuth);
+
+    if (!inPass && el > 0 && (prevEl === null || prevEl <= 0)) {
+      inPass = true;
+      passStart = { time: new Date(cur), elevation: el, azimuth: az };
+      passPeak = { ...passStart };
+      maxEl = el;
+    }
+    if (inPass && el > maxEl) {
+      maxEl = el;
+      passPeak = { time: new Date(cur), elevation: el, azimuth: az };
+    }
+    if (inPass && el <= 0 && prevEl > 0) {
+      inPass = false;
+      if (maxEl >= 1) {
+        transits.push({
+          startTime: passStart.time,
+          startElevation: passStart.elevation,
+          startAzimuth: passStart.azimuth,
+          peakTime: passPeak.time,
+          peakElevation: passPeak.elevation,
+          peakAzimuth: passPeak.azimuth,
+          endTime: new Date(cur),
+          endElevation: el,
+          endAzimuth: az
+        });
+      }
+      passStart = null;
+      passPeak = null;
+      maxEl = -90;
+    }
+    prevEl = el;
+    cur = new Date(cur.getTime() + 60000);
+  }
+  return transits;
+}
+
+function renderPasses() {
+  const tbody = document.getElementById("passes-tbody");
+  const footer = document.getElementById("passes-footer");
+  if (!tbody || !footer) return;
+
+  const now = new Date();
+  const alignedStart = new Date(Math.floor(now.getTime() / 60000) * 60000 + 14000);
+  const transits = computeTransits(t1, t2, OBSERVER, alignedStart, 7);
+  const top10 = transits.slice(0, 10);
+
+  tbody.innerHTML = top10.map(t => {
+    const start = t.startTime;
+    const end = t.endTime;
+    const day = Number(start.toLocaleDateString("en-US", { day: "numeric", timeZone: TZ }));
+    const mon = start.toLocaleDateString("en-US", { month: "short", timeZone: TZ });
+    const dateStr = day + ordinalSuffix(day) + " " + mon;
+    const timeStr = start.toLocaleTimeString("en-GB", { hour12: false, timeZone: TZ }).substring(0, 5);
+
+    const mins = Math.round((end - start) / 60000);
+    const durStr = REAL_DURATION
+      ? (mins + "m 0s")
+      : (Math.floor(mins / 60) + "m " + (mins % 60) + "s");
+
+    const peakEl = Math.round(t.peakElevation);
+    let tierClass = "";
+    if (t.peakElevation >= 70) tierClass = "tier-emerald";
+    else if (t.peakElevation >= 40) tierClass = "tier-yellow";
+    else if (t.peakElevation >= 20) tierClass = "tier-orange";
+
+    const riseStr = compassDir(t.startAzimuth) + " " + Math.round(t.startAzimuth) + "&deg;";
+    const setStr = compassDir(t.endAzimuth) + " " + Math.round(t.endAzimuth) + "&deg;";
+
+    return `<tr class="${tierClass}">
+      <td><span class="date-text">${dateStr}</span><span class="time-text">${timeStr}</span></td>
+      <td><span class="az-text">${riseStr}</span></td>
+      <td class="alt-cell">${peakEl}&deg;</td>
+      <td><span class="az-text">${setStr}</span></td>
+      <td class="dur-cell"><span class="dur-badge">${durStr}</span></td>
+    </tr>`;
+  }).join("");
+
+  footer.textContent = `Showing ${top10.length} of ${transits.length} passes`;
+}
+
+renderPasses();
+setInterval(renderPasses, 60000);
 </script>
 </body>
 </html>

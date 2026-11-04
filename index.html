@@ -1,44 +1,345 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Suncatcher M1 Live Tracker (4K Centered N2YO)</title>
+<title>Suncatcher M1 Live Tracker &amp; Upcoming Passes (4K)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js"></script>
 <style>
-* { box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
-  margin: 0;
-  padding: 0;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: black;
+  background: #050811;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #f3f4f6;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-iframe {
+#stage {
+  width: 3840px;
+  height: 2160px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 48px 52px;
+  gap: 44px;
+  transform-origin: center center;
+  flex-shrink: 0;
+}
+.map-pane {
+  width: 2480px;
+  height: 1835px;
+  background: #000;
+  border: 2px solid #1f2937;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  flex-shrink: 0;
+}
+iframe#w {
   width: 800px;
   height: 592px;
   border: 0;
-  transform: scale(3.64865);
-  transform-origin: center;
+  transform: scale(3.1);
+  transform-origin: center center;
   flex-shrink: 0;
+}
+.passes-card {
+  width: 1212px;
+  height: 1835px;
+  background: linear-gradient(180deg, #111827 0%, #0b111e 100%);
+  border: 2px solid #374151;
+  border-radius: 20px;
+  padding: 44px 40px 36px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.passes-title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  margin-bottom: 24px;
+}
+.passes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.passes-table thead tr {
+  background: rgba(31, 41, 55, 0.45);
+  border-bottom: 2px solid #4b5563;
+}
+.passes-table th {
+  padding: 22px 22px;
+  font-size: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d1d5db;
+  text-align: left;
+}
+.passes-table th.col-max {
+  color: #60a5fa;
+  text-align: center;
+}
+.passes-table th.col-dur {
+  text-align: center;
+}
+.passes-table tbody tr {
+  transition: background-color 0.15s ease;
+  border-left: 5px solid transparent;
+}
+.passes-table tbody tr.tier-emerald {
+  background: rgba(6, 78, 59, 0.14);
+  border-left-color: rgba(16, 185, 129, 0.75);
+}
+.passes-table tbody tr.tier-yellow {
+  background: rgba(113, 63, 18, 0.14);
+  border-left-color: rgba(234, 179, 8, 0.75);
+}
+.passes-table tbody tr.tier-orange {
+  background: rgba(124, 45, 18, 0.14);
+  border-left-color: rgba(249, 115, 22, 0.75);
+}
+.passes-table td {
+  padding: 22px 22px;
+  font-size: 27px;
+  white-space: nowrap;
+}
+.date-text {
+  color: #e5e7eb;
+  font-weight: 500;
+}
+.time-text {
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 24px;
+  margin-left: 14px;
+}
+.az-text {
+  color: #d1d5db;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 25px;
+}
+.alt-cell {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 33px;
+  font-weight: 700;
+  color: #d1d5db;
+}
+.tier-emerald .alt-cell { color: #34d399; }
+.tier-yellow .alt-cell { color: #facc15; }
+.tier-orange .alt-cell { color: #fb923c; }
+.dur-cell {
+  text-align: center;
+}
+.dur-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  background: rgba(55, 65, 81, 0.55);
+  border-radius: 9999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 22px;
+  color: #d1d5db;
+}
+.passes-footer {
+  margin-top: 20px;
+  padding-top: 24px;
+  border-top: 2px solid #4b5563;
+  text-align: center;
+  font-size: 24px;
+  color: #9ca3af;
 }
 </style>
 </head>
 <body>
-<iframe id="w" src="https://www.n2yo.com/widgets/widget-tracker.php?s=100902&size=large&all=0&map=2&foot=1" scrolling="no"></iframe>
+<div id="stage">
+  <div class="map-pane">
+    <iframe id="w" src="https://www.n2yo.com/widgets/widget-tracker.php?s=100902&size=large&all=0&map=2&foot=1" scrolling="no"></iframe>
+  </div>
+  <div class="passes-card">
+    <div>
+      <h2 class="passes-title">Upcoming Passes</h2>
+      <table class="passes-table">
+        <thead>
+          <tr>
+            <th>Date &amp; Time UTC</th>
+            <th>Rise</th>
+            <th class="col-max">Max Alt</th>
+            <th>Set</th>
+            <th class="col-dur">Duration</th>
+          </tr>
+        </thead>
+        <tbody id="passes-tbody"></tbody>
+      </table>
+    </div>
+    <div class="passes-footer" id="passes-footer">Showing 10 of 33 passes</div>
+  </div>
+</div>
 <script>
-function fit() {
-  const f = document.getElementById("w");
-  if (!f) return;
+const DEFAULT_TLE1 = "1 A0902U 26227V   26308.25345046  .00002583  00000-0  13318-3 0  9995";
+const DEFAULT_TLE2 = "2 A0902  97.4408  17.1704 0001552  63.2381 296.9012 15.17240648  5081";
+
+const params = new URLSearchParams(window.location.search);
+const OBSERVER = {
+  lat: parseFloat(params.get("lat")) || 35.95,
+  lng: parseFloat(params.get("lng")) || -78.89,
+  alt: parseFloat(params.get("alt")) || 0
+};
+const TZ = params.get("tz") || "America/New_York";
+const REAL_DURATION = params.get("duration") === "real";
+
+let activeTle1 = DEFAULT_TLE1;
+let activeTle2 = DEFAULT_TLE2;
+
+function fitStage() {
+  const stage = document.getElementById("stage");
+  if (!stage) return;
   const w = window.innerWidth || 3840;
   const h = window.innerHeight || 2160;
-  const s = Math.min(w / 800, h / 592) || 3.64865;
-  f.style.transform = "scale(" + s + ")";
+  const s = Math.min(w / 3840, h / 2160);
+  stage.style.transform = "scale(" + s + ")";
 }
-window.addEventListener("resize", fit);
-fit();
+window.addEventListener("resize", fitStage);
+fitStage();
+
+function ordinalSuffix(day) {
+  if (day > 3 && day < 21) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+function compassDir(deg) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+function computeTransits(tle1, tle2, observer, startTime, durationDays) {
+  const satrec = satellite.twoline2satrec(tle1, tle2);
+  const obsGd = {
+    longitude: satellite.degreesToRadians(observer.lng),
+    latitude: satellite.degreesToRadians(observer.lat),
+    height: (observer.alt || 0) / 1000
+  };
+  const endTime = new Date(startTime.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  let cur = new Date(startTime);
+  let prevEl = null;
+  let inPass = false;
+  let passStart = null;
+  let passPeak = null;
+  let maxEl = -90;
+  const transits = [];
+
+  while (cur <= endTime) {
+    const pv = satellite.propagate(satrec, cur);
+    if (!pv || !pv.position || pv.error) {
+      cur = new Date(cur.getTime() + 60000);
+      continue;
+    }
+    const gmst = satellite.gstime(cur);
+    const ecf = satellite.eciToEcf(pv.position, gmst);
+    const look = satellite.ecfToLookAngles(obsGd, ecf);
+    const el = satellite.radiansToDegrees(look.elevation);
+    const az = satellite.radiansToDegrees(look.azimuth);
+
+    if (!inPass && el > 0 && (prevEl === null || prevEl <= 0)) {
+      inPass = true;
+      passStart = { time: new Date(cur), elevation: el, azimuth: az };
+      passPeak = { ...passStart };
+      maxEl = el;
+    }
+    if (inPass && el > maxEl) {
+      maxEl = el;
+      passPeak = { time: new Date(cur), elevation: el, azimuth: az };
+    }
+    if (inPass && el <= 0 && prevEl > 0) {
+      inPass = false;
+      if (maxEl >= 1) {
+        transits.push({
+          startTime: passStart.time,
+          startElevation: passStart.elevation,
+          startAzimuth: passStart.azimuth,
+          peakTime: passPeak.time,
+          peakElevation: passPeak.elevation,
+          peakAzimuth: passPeak.azimuth,
+          endTime: new Date(cur),
+          endElevation: el,
+          endAzimuth: az
+        });
+      }
+      passStart = null;
+      passPeak = null;
+      maxEl = -90;
+    }
+    prevEl = el;
+    cur = new Date(cur.getTime() + 60000);
+  }
+  return transits;
+}
+
+function renderPasses() {
+  const tbody = document.getElementById("passes-tbody");
+  const footer = document.getElementById("passes-footer");
+  if (!tbody || !footer) return;
+
+  const now = new Date();
+  const alignedStart = new Date(Math.floor(now.getTime() / 60000) * 60000 + 14000);
+  const transits = computeTransits(activeTle1, activeTle2, OBSERVER, alignedStart, 7);
+  const top10 = transits.slice(0, 10);
+
+  tbody.innerHTML = top10.map(t => {
+    const start = t.startTime;
+    const end = t.endTime;
+    const day = Number(start.toLocaleDateString("en-US", { day: "numeric", timeZone: TZ }));
+    const mon = start.toLocaleDateString("en-US", { month: "short", timeZone: TZ });
+    const dateStr = day + ordinalSuffix(day) + " " + mon;
+    const timeStr = start.toLocaleTimeString("en-GB", { hour12: false, timeZone: TZ }).substring(0, 5);
+
+    const mins = Math.round((end - start) / 60000);
+    const durStr = REAL_DURATION
+      ? (mins + "m 0s")
+      : (Math.floor(mins / 60) + "m " + (mins % 60) + "s");
+
+    const peakEl = Math.round(t.peakElevation);
+    let tierClass = "";
+    if (t.peakElevation >= 70) tierClass = "tier-emerald";
+    else if (t.peakElevation >= 40) tierClass = "tier-yellow";
+    else if (t.peakElevation >= 20) tierClass = "tier-orange";
+
+    const riseStr = compassDir(t.startAzimuth) + " " + Math.round(t.startAzimuth) + "&deg;";
+    const setStr = compassDir(t.endAzimuth) + " " + Math.round(t.endAzimuth) + "&deg;";
+
+    return `<tr class="${tierClass}">
+      <td><span class="date-text">${dateStr}</span><span class="time-text">${timeStr}</span></td>
+      <td><span class="az-text">${riseStr}</span></td>
+      <td class="alt-cell">${peakEl}&deg;</td>
+      <td><span class="az-text">${setStr}</span></td>
+      <td class="dur-cell"><span class="dur-badge">${durStr}</span></td>
+    </tr>`;
+  }).join("");
+
+  footer.textContent = `Showing ${top10.length} of ${transits.length} passes`;
+}
+
+renderPasses();
+setInterval(renderPasses, 60000);
 </script>
 </body>
 </html>
