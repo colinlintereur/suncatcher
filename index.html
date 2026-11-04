@@ -165,7 +165,7 @@ iframe#w {
   padding-top: 28px;
   border-top: 2px solid #4b5563;
   text-align: center;
-  font-size: 25px;
+  font-size: 24px;
   color: #9ca3af;
 }
 </style>
@@ -181,7 +181,7 @@ iframe#w {
       <table class="passes-table">
         <thead>
           <tr>
-            <th>Date &amp; Time UTC</th>
+            <th id="col-datetime-header">Date &amp; Time</th>
             <th>Rise</th>
             <th class="col-max">Max Alt</th>
             <th>Set</th>
@@ -191,25 +191,10 @@ iframe#w {
         <tbody id="passes-tbody"></tbody>
       </table>
     </div>
-    <div class="passes-footer" id="passes-footer">Showing 10 of 33 passes</div>
+    <div class="passes-footer" id="passes-footer">Computing passes...</div>
   </div>
 </div>
 <script>
-const DEFAULT_TLE1 = "1 A0902U 26227V   26308.25345046  .00002583  00000-0  13318-3 0  9995";
-const DEFAULT_TLE2 = "2 A0902  97.4408  17.1704 0001552  63.2381 296.9012 15.17240648  5081";
-
-const params = new URLSearchParams(window.location.search);
-const OBSERVER = {
-  lat: parseFloat(params.get("lat")) || 35.95,
-  lng: parseFloat(params.get("lng")) || -78.89,
-  alt: parseFloat(params.get("alt")) || 0
-};
-const TZ = params.get("tz") || "America/New_York";
-const REAL_DURATION = params.get("duration") === "real";
-
-let activeTle1 = DEFAULT_TLE1;
-let activeTle2 = DEFAULT_TLE2;
-
 function fitStage() {
   const stage = document.getElementById("stage");
   if (!stage) return;
@@ -220,131 +205,7 @@ function fitStage() {
 }
 window.addEventListener("resize", fitStage);
 fitStage();
-
-function ordinalSuffix(day) {
-  if (day > 3 && day < 21) return "th";
-  switch (day % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
-}
-
-function compassDir(deg) {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(deg / 45) % 8];
-}
-
-function computeTransits(tle1, tle2, observer, startTime, durationDays) {
-  const satrec = satellite.twoline2satrec(tle1, tle2);
-  const obsGd = {
-    longitude: satellite.degreesToRadians(observer.lng),
-    latitude: satellite.degreesToRadians(observer.lat),
-    height: (observer.alt || 0) / 1000
-  };
-  const endTime = new Date(startTime.getTime() + durationDays * 24 * 60 * 60 * 1000);
-  let cur = new Date(startTime);
-  let prevEl = null;
-  let inPass = false;
-  let passStart = null;
-  let passPeak = null;
-  let maxEl = -90;
-  const transits = [];
-
-  while (cur <= endTime) {
-    const pv = satellite.propagate(satrec, cur);
-    if (!pv || !pv.position || pv.error) {
-      cur = new Date(cur.getTime() + 60000);
-      continue;
-    }
-    const gmst = satellite.gstime(cur);
-    const ecf = satellite.eciToEcf(pv.position, gmst);
-    const look = satellite.ecfToLookAngles(obsGd, ecf);
-    const el = satellite.radiansToDegrees(look.elevation);
-    const az = satellite.radiansToDegrees(look.azimuth);
-
-    if (!inPass && el > 0 && (prevEl === null || prevEl <= 0)) {
-      inPass = true;
-      passStart = { time: new Date(cur), elevation: el, azimuth: az };
-      passPeak = { ...passStart };
-      maxEl = el;
-    }
-    if (inPass && el > maxEl) {
-      maxEl = el;
-      passPeak = { time: new Date(cur), elevation: el, azimuth: az };
-    }
-    if (inPass && el <= 0 && prevEl > 0) {
-      inPass = false;
-      if (maxEl >= 1) {
-        transits.push({
-          startTime: passStart.time,
-          startElevation: passStart.elevation,
-          startAzimuth: passStart.azimuth,
-          peakTime: passPeak.time,
-          peakElevation: passPeak.elevation,
-          peakAzimuth: passPeak.azimuth,
-          endTime: new Date(cur),
-          endElevation: el,
-          endAzimuth: az
-        });
-      }
-      passStart = null;
-      passPeak = null;
-      maxEl = -90;
-    }
-    prevEl = el;
-    cur = new Date(cur.getTime() + 60000);
-  }
-  return transits;
-}
-
-function renderPasses() {
-  const tbody = document.getElementById("passes-tbody");
-  const footer = document.getElementById("passes-footer");
-  if (!tbody || !footer) return;
-
-  const now = new Date();
-  const alignedStart = new Date(Math.floor(now.getTime() / 60000) * 60000 + 14000);
-  const transits = computeTransits(activeTle1, activeTle2, OBSERVER, alignedStart, 7);
-  const top10 = transits.slice(0, 10);
-
-  tbody.innerHTML = top10.map(t => {
-    const start = t.startTime;
-    const end = t.endTime;
-    const day = Number(start.toLocaleDateString("en-US", { day: "numeric", timeZone: TZ }));
-    const mon = start.toLocaleDateString("en-US", { month: "short", timeZone: TZ });
-    const dateStr = day + ordinalSuffix(day) + " " + mon;
-    const timeStr = start.toLocaleTimeString("en-GB", { hour12: false, timeZone: TZ }).substring(0, 5);
-
-    const mins = Math.round((end - start) / 60000);
-    const durStr = REAL_DURATION
-      ? (mins + "m 0s")
-      : (Math.floor(mins / 60) + "m " + (mins % 60) + "s");
-
-    const peakEl = Math.round(t.peakElevation);
-    let tierClass = "";
-    if (t.peakElevation >= 70) tierClass = "tier-emerald";
-    else if (t.peakElevation >= 40) tierClass = "tier-yellow";
-    else if (t.peakElevation >= 20) tierClass = "tier-orange";
-
-    const riseStr = compassDir(t.startAzimuth) + " " + Math.round(t.startAzimuth) + "&deg;";
-    const setStr = compassDir(t.endAzimuth) + " " + Math.round(t.endAzimuth) + "&deg;";
-
-    return `<tr class="${tierClass}">
-      <td><span class="date-text">${dateStr}</span><span class="time-text">${timeStr}</span></td>
-      <td><span class="az-text">${riseStr}</span></td>
-      <td class="alt-cell">${peakEl}&deg;</td>
-      <td><span class="az-text">${setStr}</span></td>
-      <td class="dur-cell"><span class="dur-badge">${durStr}</span></td>
-    </tr>`;
-  }).join("");
-
-  footer.textContent = `Showing ${top10.length} of ${transits.length} passes`;
-}
-
-renderPasses();
-setInterval(renderPasses, 60000);
 </script>
+<script src="passes.js"></script>
 </body>
 </html>

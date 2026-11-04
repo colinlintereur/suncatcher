@@ -150,7 +150,7 @@ div[id=h] {
   padding-top: 14px;
   border-top: 1px solid #4b5563;
   text-align: center;
-  font-size: 19px;
+  font-size: 18px;
   color: #9ca3af;
 }
 </style>
@@ -163,7 +163,7 @@ div[id=h] {
   <table class="passes-table">
     <thead>
       <tr>
-        <th>Date &amp; Time UTC</th>
+        <th id="col-datetime-header">Date &amp; Time</th>
         <th>Rise</th>
         <th class="col-max">Max Alt</th>
         <th>Set</th>
@@ -172,46 +172,67 @@ div[id=h] {
     </thead>
     <tbody id="passes-tbody"></tbody>
   </table>
-  <div class="passes-footer" id="passes-footer">Showing 10 of 33 passes</div>
+  <div class="passes-footer" id="passes-footer">Computing passes...</div>
 </div>
+<script src="passes.js"></script>
 <script>
-const t1 = "1 A0902U 26227V   26308.25345046  .00002583  00000-0  13318-3 0  9995",
-      t2 = "2 A0902  97.4408  17.1704 0001552  63.2381 296.9012 15.17240648  5081",
-      m = L.map("m", { zoomControl: false, attributionControl: false }).setView([0, 0], 4);
-
+const m = L.map("m", { zoomControl: false, attributionControl: false }).setView([0, 0], 4);
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}", { maxZoom: 13 }).addTo(m);
-L.terminator().addTo(m);
+const term = L.terminator().addTo(m);
 
-const s = satellite.twoline2satrec(t1, t2);
-let k, c;
+let k = null;
+let c = null;
+let trackLines = [];
 
-function p(d) {
-  const v = satellite.propagate(s, d);
-  if (!v.position) return null;
-  const g = satellite.eciToGeodetic(v.position, satellite.gstime(d));
+function propAt(d) {
+  const satrec = window.SuncatcherPasses && window.SuncatcherPasses.getSatrec();
+  if (!satrec || typeof window.satellite === "undefined") return null;
+  const v = window.satellite.propagate(satrec, d);
+  if (!v || !v.position || v.error) return null;
+  const g = window.satellite.eciToGeodetic(v.position, window.satellite.gstime(d));
   return {
-    lt: satellite.degreesLat(g.latitude),
-    lg: satellite.degreesLong(g.longitude),
+    lt: window.satellite.degreesLat(g.latitude),
+    lg: window.satellite.degreesLong(g.longitude),
     a: g.height,
     s: Math.sqrt(398600.8 / (g.height + 6378.135))
   };
 }
 
-let tr = [[]], ti = 0, n = new Date();
-for (let t = -45; t <= 45; t++) {
-  const q = p(new Date(n.getTime() + 60000 * t));
-  if (q) {
-    if (tr[ti].length && Math.abs(q.lg - tr[ti][tr[ti].length - 1][1]) > 180) tr[++ti] = [];
-    tr[ti].push([q.lt, q.lg]);
+function updateOrbitAndTerminator() {
+  const now = new Date();
+  const segments = [[]];
+  let segIdx = 0;
+  for (let t = -45; t <= 45; t++) {
+    const q = propAt(new Date(now.getTime() + 60000 * t));
+    if (q) {
+      const curSeg = segments[segIdx];
+      if (curSeg.length && Math.abs(q.lg - curSeg[curSeg.length - 1][1]) > 180) {
+        segments[++segIdx] = [];
+      }
+      segments[segIdx].push([q.lt, q.lg]);
+    }
+  }
+  trackLines.forEach(line => m.removeLayer(line));
+  trackLines = segments
+    .filter(seg => seg.length > 1)
+    .map(seg => L.polyline(seg, { color: "red", weight: 4, opacity: 0.7 }).addTo(m));
+
+  try {
+    const updatedTerm = L.terminator({ time: now });
+    term.setLatLngs(updatedTerm.getLatLngs());
+  } catch (_) {}
+
+  const curPos = propAt(now);
+  if (curPos) {
+    m.panTo([Math.max(-58, Math.min(58, curPos.lt)), curPos.lg], { animate: false });
   }
 }
-tr.forEach(g => L.polyline(g, { color: "red", weight: 4, opacity: 0.7 }).addTo(m));
 
-function u() {
-  const q = p(new Date());
+function updatePositionTick() {
+  const q = propAt(new Date());
   if (!q) return;
-  const l = [q.lt, q.lg],
-        r = 6375 * Math.asin(Math.sqrt(q.a * (q.a + 12750)) / (6375 + q.a)) * 1000;
+  const l = [q.lt, q.lg];
+  const r = 6375 * Math.asin(Math.sqrt(q.a * (q.a + 12750)) / (6375 + q.a)) * 1000;
   if (!k) {
     k = L.marker(l, { icon: L.divIcon({ className: "i", iconSize: [36, 36], iconAnchor: [18, 18] }) }).addTo(m);
     c = L.circle(l, { radius: r, color: "red", fillColor: "pink", fillOpacity: 0.25, weight: 3 }).addTo(m);
@@ -223,17 +244,6 @@ function u() {
   }
   document.getElementById("h").innerHTML = "<b style='font-size:26px;color:#60a5fa;'>PROJECT SUNCATCHER-M1</b><br>LAT: " + q.lt.toFixed(2) + "&deg;<br>LNG: " + q.lg.toFixed(2) + "&deg;<br>ALT: " + q.a.toFixed(1) + " km<br>SPD: " + q.s.toFixed(2) + " km/s";
 }
-u();
-setInterval(u, 1000);
-
-const params = new URLSearchParams(window.location.search);
-const OBSERVER = {
-  lat: parseFloat(params.get("lat")) || 35.95,
-  lng: parseFloat(params.get("lng")) || -78.89,
-  alt: parseFloat(params.get("alt")) || 0
-};
-const TZ = params.get("tz") || "America/New_York";
-const REAL_DURATION = params.get("duration") === "real";
 
 function fitCard() {
   const card = document.getElementById("passes-card");
@@ -246,130 +256,16 @@ function fitCard() {
 window.addEventListener("resize", fitCard);
 fitCard();
 
-function ordinalSuffix(day) {
-  if (day > 3 && day < 21) return "th";
-  switch (day % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
+updateOrbitAndTerminator();
+updatePositionTick();
+setInterval(updatePositionTick, 1000);
+setInterval(updateOrbitAndTerminator, 30000);
+if (window.SuncatcherPasses) {
+  window.SuncatcherPasses.onTleUpdate(() => {
+    updateOrbitAndTerminator();
+    updatePositionTick();
+  });
 }
-
-function compassDir(deg) {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(deg / 45) % 8];
-}
-
-function computeTransits(tle1, tle2, observer, startTime, durationDays) {
-  const satrec = satellite.twoline2satrec(tle1, tle2);
-  const obsGd = {
-    longitude: satellite.degreesToRadians(observer.lng),
-    latitude: satellite.degreesToRadians(observer.lat),
-    height: (observer.alt || 0) / 1000
-  };
-  const endTime = new Date(startTime.getTime() + durationDays * 24 * 60 * 60 * 1000);
-  let cur = new Date(startTime);
-  let prevEl = null;
-  let inPass = false;
-  let passStart = null;
-  let passPeak = null;
-  let maxEl = -90;
-  const transits = [];
-
-  while (cur <= endTime) {
-    const pv = satellite.propagate(satrec, cur);
-    if (!pv || !pv.position || pv.error) {
-      cur = new Date(cur.getTime() + 60000);
-      continue;
-    }
-    const gmst = satellite.gstime(cur);
-    const ecf = satellite.eciToEcf(pv.position, gmst);
-    const look = satellite.ecfToLookAngles(obsGd, ecf);
-    const el = satellite.radiansToDegrees(look.elevation);
-    const az = satellite.radiansToDegrees(look.azimuth);
-
-    if (!inPass && el > 0 && (prevEl === null || prevEl <= 0)) {
-      inPass = true;
-      passStart = { time: new Date(cur), elevation: el, azimuth: az };
-      passPeak = { ...passStart };
-      maxEl = el;
-    }
-    if (inPass && el > maxEl) {
-      maxEl = el;
-      passPeak = { time: new Date(cur), elevation: el, azimuth: az };
-    }
-    if (inPass && el <= 0 && prevEl > 0) {
-      inPass = false;
-      if (maxEl >= 1) {
-        transits.push({
-          startTime: passStart.time,
-          startElevation: passStart.elevation,
-          startAzimuth: passStart.azimuth,
-          peakTime: passPeak.time,
-          peakElevation: passPeak.elevation,
-          peakAzimuth: passPeak.azimuth,
-          endTime: new Date(cur),
-          endElevation: el,
-          endAzimuth: az
-        });
-      }
-      passStart = null;
-      passPeak = null;
-      maxEl = -90;
-    }
-    prevEl = el;
-    cur = new Date(cur.getTime() + 60000);
-  }
-  return transits;
-}
-
-function renderPasses() {
-  const tbody = document.getElementById("passes-tbody");
-  const footer = document.getElementById("passes-footer");
-  if (!tbody || !footer) return;
-
-  const now = new Date();
-  const alignedStart = new Date(Math.floor(now.getTime() / 60000) * 60000 + 14000);
-  const transits = computeTransits(t1, t2, OBSERVER, alignedStart, 7);
-  const top10 = transits.slice(0, 10);
-
-  tbody.innerHTML = top10.map(t => {
-    const start = t.startTime;
-    const end = t.endTime;
-    const day = Number(start.toLocaleDateString("en-US", { day: "numeric", timeZone: TZ }));
-    const mon = start.toLocaleDateString("en-US", { month: "short", timeZone: TZ });
-    const dateStr = day + ordinalSuffix(day) + " " + mon;
-    const timeStr = start.toLocaleTimeString("en-GB", { hour12: false, timeZone: TZ }).substring(0, 5);
-
-    const mins = Math.round((end - start) / 60000);
-    const durStr = REAL_DURATION
-      ? (mins + "m 0s")
-      : (Math.floor(mins / 60) + "m " + (mins % 60) + "s");
-
-    const peakEl = Math.round(t.peakElevation);
-    let tierClass = "";
-    if (t.peakElevation >= 70) tierClass = "tier-emerald";
-    else if (t.peakElevation >= 40) tierClass = "tier-yellow";
-    else if (t.peakElevation >= 20) tierClass = "tier-orange";
-
-    const riseStr = compassDir(t.startAzimuth) + " " + Math.round(t.startAzimuth) + "&deg;";
-    const setStr = compassDir(t.endAzimuth) + " " + Math.round(t.endAzimuth) + "&deg;";
-
-    return `<tr class="${tierClass}">
-      <td><span class="date-text">${dateStr}</span><span class="time-text">${timeStr}</span></td>
-      <td><span class="az-text">${riseStr}</span></td>
-      <td class="alt-cell">${peakEl}&deg;</td>
-      <td><span class="az-text">${setStr}</span></td>
-      <td class="dur-cell"><span class="dur-badge">${durStr}</span></td>
-    </tr>`;
-  }).join("");
-
-  footer.textContent = `Showing ${top10.length} of ${transits.length} passes`;
-}
-
-renderPasses();
-setInterval(renderPasses, 60000);
 </script>
 </body>
 </html>
